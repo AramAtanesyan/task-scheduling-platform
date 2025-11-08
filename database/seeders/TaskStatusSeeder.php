@@ -15,14 +15,12 @@ class TaskStatusSeeder extends Seeder
     public function run()
     {
         $statuses = [
-            ['name' => 'To Do', 'color' => '#3b82f6'],
-            ['name' => 'In Progress', 'color' => '#f59e0b'],
-            ['name' => 'Completed', 'color' => '#10b981'],
-            ['name' => 'Cancelled', 'color' => '#ef4444'],
+            ['name' => 'To Do', 'color' => '#3b82f6', 'is_default' => true],
+            ['name' => 'In Progress', 'color' => '#f59e0b', 'is_default' => false],
+            ['name' => 'Completed', 'color' => '#10b981', 'is_default' => false],
+            ['name' => 'Cancelled', 'color' => '#ef4444', 'is_default' => false],
         ];
 
-        foreach ($statuses as $status) {
-            TaskStatus::create($status);
-        }
+        TaskStatus::insert($statuses);
     }
 }

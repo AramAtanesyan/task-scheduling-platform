@@ -12,6 +12,11 @@ class TaskStatus extends Model
     protected $fillable = [
         'name',
         'color',
+        'is_default',
+    ];
+
+    protected $casts = [
+        'is_default' => 'boolean',
     ];
 
     /**
@@ -19,6 +24,6 @@ class TaskStatus extends Model
      */
     public function tasks()
     {
-        return $this->hasMany(Task::class);
+        return $this->hasMany(Task::class, 'status_id');
     }
 }

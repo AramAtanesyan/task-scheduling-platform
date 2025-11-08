@@ -20,11 +20,8 @@ class CreateUserAvailabilitiesTable extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->timestamps();
-            
-            // Indexes for overlap checking
-            $table->index('user_id');
-            $table->index('start_date');
-            $table->index('end_date');
+
+            $table->index(['user_id', 'start_date', 'end_date']);
         });
     }
 

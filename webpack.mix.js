@@ -11,17 +11,21 @@ const mix = require('laravel-mix');
  |
  */
 
-mix.ts('resources/js/main.js', 'public/js')
-    .vue({ version: 2 })
+// Compile page-specific entry files
+mix.js('resources/js/pages/login.js', 'public/js/pages')
+    .js('resources/js/pages/dashboard.js', 'public/js/pages')
+    .js('resources/js/pages/statuses.js', 'public/js/pages')
     .postCss('resources/css/app.css', 'public/css', [
         //
     ])
     .webpackConfig({
         resolve: {
             alias: {
-                '@': __dirname + '/resources/js'
+                '@': __dirname + '/resources/js',
+                // Use the full build of Vue with template compiler (CommonJS version)
+                'vue$': 'vue/dist/vue.common.js'
             },
-            extensions: ['.js', '.ts', '.vue', '.json']
+            extensions: ['.js', '.ts', '.json']
         },
         module: {
             rules: [
@@ -29,7 +33,6 @@ mix.ts('resources/js/main.js', 'public/js')
                     test: /\.tsx?$/,
                     loader: 'ts-loader',
                     options: {
-                        appendTsSuffixTo: [/\.vue$/],
                         transpileOnly: true
                     },
                     exclude: /node_modules/

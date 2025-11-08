@@ -20,26 +20,34 @@ class UserSeeder extends Seeder
                 'name' => 'Admin User',
                 'email' => 'admin@example.com',
                 'password' => Hash::make('password'),
+                'role' => User::USER_ROLE_ADMIN,
             ],
             [
                 'name' => 'Manager User',
                 'email' => 'manager@example.com',
                 'password' => Hash::make('password'),
+                'role' => User::USER_ROLE_ADMIN,
             ],
             [
                 'name' => 'John Doe',
                 'email' => 'john@example.com',
                 'password' => Hash::make('password'),
+                'role' => User::USER_ROLE_USER,
             ],
             [
                 'name' => 'Jane Smith',
                 'email' => 'jane@example.com',
                 'password' => Hash::make('password'),
+                'role' => User::USER_ROLE_USER,
+            ],
+            [
+                'name' => 'Bob Wilson',
+                'email' => 'bob@example.com',
+                'password' => Hash::make('password'),
+                'role' => User::USER_ROLE_USER,
             ],
         ];
 
-        foreach ($users as $user) {
-            User::create($user);
-        }
+        User::insert($users);
     }
 }

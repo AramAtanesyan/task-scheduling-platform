@@ -46,6 +46,8 @@ export const authApi = {
 // Users API
 export const usersApi = {
   getAll: () => apiClient.get('/users'),
+  create: (data: { name: string; email: string; password: string; role: string }) =>
+    apiClient.post('/users', data),
 };
 
 // Task Statuses API
@@ -61,8 +63,6 @@ export const tasksApi = {
   create: (data: any) => apiClient.post('/tasks', data),
   update: (id: number, data: any) => apiClient.put(`/tasks/${id}`, data),
   delete: (id: number) => apiClient.delete(`/tasks/${id}`),
-  reassign: (id: number, userId: number) =>
-    apiClient.post(`/tasks/${id}/reassign`, { user_id: userId }),
 };
 
 export default apiClient;

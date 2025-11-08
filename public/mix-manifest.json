@@ -1,4 +1,6 @@
 {
-    "/js/main.js": "/js/main.js",
+    "/js/pages/login.js": "/js/pages/login.js",
+    "/js/pages/dashboard.js": "/js/pages/dashboard.js",
+    "/js/pages/statuses.js": "/js/pages/statuses.js",
     "/css/app.css": "/css/app.css"
 }

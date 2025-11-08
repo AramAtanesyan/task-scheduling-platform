@@ -3,10 +3,18 @@
 namespace App\Services;
 
 use App\Models\UserAvailability;
+use App\Repositories\UserAvailabilityRepository;
 use Carbon\Carbon;
 
 class AvailabilityService
 {
+    protected $availabilityRepository;
+
+    public function __construct(UserAvailabilityRepository $availabilityRepository)
+    {
+        $this->availabilityRepository = $availabilityRepository;
+    }
+
     /**
      * Check if a user has overlapping tasks in the given date range.
      *
@@ -18,24 +26,7 @@ class AvailabilityService
      */
     public function hasOverlappingTask(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): bool
     {
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
-
-        $query = UserAvailability::where('user_id', $userId)
-            ->where(function ($q) use ($start, $end) {
-                $q->where(function ($q2) use ($start, $end) {
-                    // Check if existing task overlaps with new date range
-                    // Overlap occurs when: start_date <= new_end_date AND end_date >= new_start_date
-                    $q2->where('start_date', '<=', $end)
-                       ->where('end_date', '>=', $start);
-                });
-            });
-
-        if ($excludeTaskId) {
-            $query->where('task_id', '!=', $excludeTaskId);
-        }
-
-        return $query->exists();
+        return $this->availabilityRepository->hasOverlapping($userId, $startDate, $endDate, $excludeTaskId);
     }
 
     /**
@@ -49,21 +40,54 @@ class AvailabilityService
      */
     public function getOverlappingTask(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): ?UserAvailability
     {
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
+        return $this->availabilityRepository->findOverlapping($userId, $startDate, $endDate, $excludeTaskId);
+    }
 
-        $query = UserAvailability::where('user_id', $userId)
-            ->where(function ($q) use ($start, $end) {
-                $q->where('start_date', '<=', $end)
-                   ->where('end_date', '>=', $start);
-            })
-            ->with('task');
+    /**
+     * Validate user availability and return detailed information.
+     *
+     * @param int $userId
+     * @param string $startDate
+     * @param string $endDate
+     * @param int|null $excludeTaskId
+     * @return array
+     */
+    public function validateAvailability(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): array
+    {
+        $overlappingAvailability = $this->getOverlappingTask($userId, $startDate, $endDate, $excludeTaskId);
 
-        if ($excludeTaskId) {
-            $query->where('task_id', '!=', $excludeTaskId);
+        if (!$overlappingAvailability) {
+            return [
+                'available' => true,
+                'message' => 'User is available during this period.',
+            ];
         }
 
-        return $query->first();
+        $task = $overlappingAvailability->task;
+        $startFormatted = Carbon::parse($overlappingAvailability->start_date)->format('M d, Y');
+        $endFormatted = Carbon::parse($overlappingAvailability->end_date)->format('M d, Y');
+
+        return [
+            'available' => false,
+            'message' => "User is unavailable during this period. They have an overlapping task: \"{$task->title}\" ({$startFormatted} - {$endFormatted})",
+            'overlapping_task' => [
+                'id' => $task->id,
+                'title' => $task->title,
+                'start_date' => $overlappingAvailability->start_date,
+                'end_date' => $overlappingAvailability->end_date,
+            ],
+        ];
+    }
+
+    /**
+     * Get all availability records for a user.
+     *
+     * @param int $userId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getUserAvailability(int $userId)
+    {
+        return $this->availabilityRepository->getByUser($userId);
     }
 }
 

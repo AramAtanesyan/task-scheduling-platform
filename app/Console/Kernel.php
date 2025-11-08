@@ -15,7 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Clean up stale availability locks every minute
+        $schedule->command('locks:cleanup')->everyMinute();
     }
 
     /**

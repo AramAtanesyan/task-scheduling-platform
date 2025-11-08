@@ -22,14 +22,11 @@ class CreateTasksTable extends Migration
             $table->foreignId('status_id')->constrained('task_statuses')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
-            
-            // Indexes for search performance
+            $table->softDeletes();
+
             $table->index('title');
-            // Note: description index removed - TEXT columns can't be indexed without key length
-            // Searching description will still work with LIKE queries
             $table->index('user_id');
-            $table->index('start_date');
-            $table->index('end_date');
+            $table->fullText('description');
         });
     }
 
