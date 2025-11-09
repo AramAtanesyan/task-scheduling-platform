@@ -189,8 +189,6 @@ class TaskController extends Controller
             if (!$availabilityCheck['available']) {
                 return $this->errorResponse(
                     $availabilityCheck['message'],
-                    ['overlapping_task' => $availabilityCheck['overlapping_task']],
-                    422
                 );
             }
         }
