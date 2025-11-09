@@ -41,7 +41,7 @@ QUEUE_CONNECTION=redis
 #-------------------------------------------------
 # Redis Configuration
 #-------------------------------------------------
-REDIS_HOST=redis
+REDIS_HOST=127.0.0.1
 REDIS_PASSWORD=null
 REDIS_PORT=6379
 REDIS_CLIENT=predis
@@ -65,10 +65,8 @@ echo "🎉 Configuration complete!"
 echo ""
 echo "Next steps:"
 echo "1. Review your .env file"
-echo "2. Run: docker-compose up -d"
-echo "3. Run: docker-compose exec app php artisan migrate"
-echo "4. Test: docker-compose exec app php artisan tinker"
+echo "2. Make sure Redis is running locally"
+echo "3. Run: php artisan migrate"
+echo "4. Test: php artisan tinker"
 echo "   >>> Redis::connection()->ping()"
-echo ""
-echo "📚 See ACTIVATE_REDIS.md for detailed instructions"
 
