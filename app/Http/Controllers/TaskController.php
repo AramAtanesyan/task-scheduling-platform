@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Services\AvailabilityService;
 use App\Services\AvailabilityLockService;
+use App\Services\FilterService;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
 use App\Http\Traits\ApiResponseTrait;
+use App\Rules\ValidDueDateFilter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,13 +25,16 @@ class TaskController extends Controller
 
     protected $availabilityService;
     protected $lockService;
+    protected $filterService;
 
     public function __construct(
         AvailabilityService $availabilityService,
-        AvailabilityLockService $lockService
+        AvailabilityLockService $lockService,
+        FilterService $filterService
     ) {
         $this->availabilityService = $availabilityService;
         $this->lockService = $lockService;
+        $this->filterService = $filterService;
     }
 
     /**
@@ -40,6 +45,13 @@ class TaskController extends Controller
      */
     public function index(Request $request)
     {
+        $request->validate([
+            'search' => 'nullable|string|max:255',
+            'status_id' => 'nullable|integer|exists:task_statuses,id',
+            'user_id' => 'nullable|integer|exists:users,id',
+            'due_date_filter' => ['nullable', 'string', new ValidDueDateFilter()],
+        ]);
+
         $query = Task::with(['user', 'status']);
 
         // Search by title or description
@@ -51,36 +63,19 @@ class TaskController extends Controller
             });
         }
 
-        // Filter by status
         if ($request->has('status_id') && $request->status_id) {
             $query->where('status_id', $request->status_id);
         }
 
-        // Filter by assignee
         if ($request->has('user_id') && $request->user_id) {
             $query->where('user_id', $request->user_id);
         }
 
-        // Filter by due date
         if ($request->has('due_date_filter') && $request->due_date_filter) {
-            $now = now();
-            switch ($request->due_date_filter) {
-                case 'overdue':
-                    $query->where('end_date', '<', $now);
-                    break;
-                case 'today':
-                    $query->whereDate('end_date', $now);
-                    break;
-                case 'this_week':
-                    $query->whereBetween('end_date', [$now->startOfWeek(), $now->copy()->endOfWeek()]);
-                    break;
-                case 'this_month':
-                    $query->whereBetween('end_date', [$now->startOfMonth(), $now->copy()->endOfMonth()]);
-                    break;
-            }
+            $query = $this->filterService->applyDueDateFilter($query, $request->due_date_filter);
         }
 
-        $tasks = $query->orderBy('created_at', 'desc')->get();
+        $tasks = $query->orderByDesc('id')->get();
 
         return response()->json([
             'success' => true,

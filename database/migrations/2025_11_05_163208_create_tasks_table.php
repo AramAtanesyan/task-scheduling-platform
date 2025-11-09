@@ -25,8 +25,13 @@ class CreateTasksTable extends Migration
             $table->softDeletes();
 
             $table->index('title');
-            $table->index('user_id');
             $table->fullText('description');
+            $table->index('start_date');
+            $table->index('end_date');
+            $table->index('status_id');
+            $table->index('user_id');
+            $table->index('created_at');
+            $table->index('deleted_at');
         });
     }
 

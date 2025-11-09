@@ -36,20 +36,6 @@ class UserAvailabilityRepository
     }
 
     /**
-     * Get all availability records for a user.
-     *
-     * @param int $userId
-     * @return Collection
-     */
-    public function getByUser(int $userId): Collection
-    {
-        return UserAvailability::where('user_id', $userId)
-            ->with('task')
-            ->orderBy('start_date')
-            ->get();
-    }
-
-    /**
      * Create a new availability record.
      *
      * @param array $data

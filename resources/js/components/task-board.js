@@ -32,10 +32,9 @@ window.Vue.component('task-board', {
             </select>
             <select v-model="selectedDueDate" @change="handleFilter" class="filter-select">
               <option :value="null">All Due Dates</option>
-              <option value="overdue">Overdue</option>
-              <option value="today">Due Today</option>
-              <option value="this_week">This Week</option>
-              <option value="this_month">This Month</option>
+              <option v-for="filter in dueDateFilters" :key="filter.value" :value="filter.value" :title="filter.description">
+                {{ filter.label }}
+              </option>
             </select>
           </div>
           <button v-if="currentUser && currentUser.role === 'admin'" 
@@ -124,6 +123,7 @@ window.Vue.component('task-board', {
       tasks: [],
       users: [],
       statuses: [],
+      dueDateFilters: [],
       loading: true,
       currentUser: null
     };
@@ -135,6 +135,7 @@ window.Vue.component('task-board', {
   },
   async mounted() {
     await this.fetchCurrentUser();
+    await this.fetchFilters();
     await this.fetchData();
   },
   methods: {
@@ -144,6 +145,16 @@ window.Vue.component('task-board', {
         this.currentUser = response.data;
       } catch (error) {
         console.error('Error fetching current user:', error);
+      }
+    },
+    async fetchFilters() {
+      try {
+        const response = await axios.get('/api/filters');
+        this.dueDateFilters = response.data.data.due_date_filters || [];
+      } catch (error) {
+        console.error('Error fetching filters:', error);
+        // Fallback to empty array if filters endpoint fails
+        this.dueDateFilters = [];
       }
     },
     async fetchData() {

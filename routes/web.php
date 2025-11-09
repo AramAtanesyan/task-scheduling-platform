@@ -39,6 +39,9 @@ Route::middleware('auth')->group(function () {
         // Authentication
         Route::get('/user', [App\Http\Controllers\AuthController::class, 'user']);
 
+        // Filters
+        Route::get('/filters', [App\Http\Controllers\FilterController::class, 'index']);
+
         // Users
         Route::get('/users', [App\Http\Controllers\UserController::class, 'index']);
         Route::post('/users', [App\Http\Controllers\UserController::class, 'store'])
