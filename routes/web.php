@@ -29,9 +29,10 @@ Route::middleware('auth')->group(function () {
         return view('dashboard');
     })->name('dashboard');
 
+    // Admin-only routes
     Route::get('/statuses', function () {
         return view('statuses');
-    })->name('statuses');
+    })->name('statuses')->middleware('admin');
 
     // API endpoints for SPA
     Route::prefix('api')->group(function () {
@@ -40,13 +41,24 @@ Route::middleware('auth')->group(function () {
 
         // Users
         Route::get('/users', [App\Http\Controllers\UserController::class, 'index']);
-        Route::post('/users', [App\Http\Controllers\UserController::class, 'store']);
+        Route::post('/users', [App\Http\Controllers\UserController::class, 'store'])
+             ->middleware('admin');
 
         // Task Statuses
-        Route::apiResource('statuses', App\Http\Controllers\TaskStatusController::class)
-             ->only(['index', 'store', 'update', 'destroy']);
+        Route::get('/statuses', [App\Http\Controllers\TaskStatusController::class, 'index']);
+        Route::post('/statuses', [App\Http\Controllers\TaskStatusController::class, 'store'])
+             ->middleware('admin');
+        Route::put('/statuses/{status}', [App\Http\Controllers\TaskStatusController::class, 'update'])
+             ->middleware('admin');
+        Route::delete('/statuses/{status}', [App\Http\Controllers\TaskStatusController::class, 'destroy'])
+             ->middleware('admin');
 
         // Tasks
-        Route::apiResource('tasks', App\Http\Controllers\TaskController::class);
+        Route::get('/tasks', [App\Http\Controllers\TaskController::class, 'index']);
+        Route::post('/tasks', [App\Http\Controllers\TaskController::class, 'store'])
+             ->middleware('admin');
+        Route::put('/tasks/{task}', [App\Http\Controllers\TaskController::class, 'update']);
+        Route::delete('/tasks/{task}', [App\Http\Controllers\TaskController::class, 'destroy'])
+             ->middleware('admin');
     });
 });

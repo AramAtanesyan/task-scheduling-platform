@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\Task;
-use App\Repositories\UserAvailabilityRepository;
 use App\Services\AvailabilityLockService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,7 +15,15 @@ class UpdateUserAvailabilityJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $task;
+    /**
+     * @var int
+     */
+    private $taskId;
+
+    /**
+     * @var int
+     */
+    private $lockId;
 
     /**
      * The number of times the job may be attempted.
@@ -35,47 +42,40 @@ class UpdateUserAvailabilityJob implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param Task $task
+     * @param int $taskId
+     * @param int $lockId
      * @return void
      */
-    public function __construct(Task $task)
+    public function __construct(int $taskId, int $lockId)
     {
-        $this->task = $task;
+        $this->taskId = $taskId;
+        $this->lockId = $lockId;
     }
 
     /**
      * Execute the job.
      *
      * @param AvailabilityLockService $lockService
-     * @param UserAvailabilityRepository $availabilityRepository
      * @return void
      */
-    public function handle(AvailabilityLockService $lockService, UserAvailabilityRepository $availabilityRepository)
+    public function handle(AvailabilityLockService $lockService)
     {
-        try {
-            // Delete any existing availability records for this task
-            // This handles both updates and reassignments
-            $availabilityRepository->deleteByTask($this->task->id);
+        $task = Task::findOrFail($this->taskId);
 
-            // Create new availability record for the current user
-            $availabilityRepository->create([
-                'user_id' => $this->task->user_id,
-                'task_id' => $this->task->id,
-                'start_date' => $this->task->start_date,
-                'end_date' => $this->task->end_date,
+        try {
+            $task->availability()->delete();
+
+            $task->availability()->create([
+                'user_id' => $task->user_id,
+                'start_date' => $task->start_date,
+                'end_date' => $task->end_date,
             ]);
 
-            // Release the lock after successful update
-            $lockService->releaseLock($this->task->user_id, $this->task->id);
-
-            Log::info("User availability updated successfully for Task ID: {$this->task->id}, User ID: {$this->task->user_id}");
         } catch (\Exception $e) {
-            Log::error("Failed to update user availability for Task ID: {$this->task->id}, User ID: {$this->task->user_id}. Error: {$e->getMessage()}");
-            
-            // Release the lock even on failure to prevent deadlock
-            $lockService->releaseLock($this->task->user_id, $this->task->id);
-            
+            Log::error("Failed to update user availability for Task ID: {$task->id}, User ID: {$task->user_id}. Error: {$e->getMessage()}");
             throw $e;
+        } finally {
+            $lockService->releaseLockById($this->lockId);
         }
     }
 
@@ -87,10 +87,9 @@ class UpdateUserAvailabilityJob implements ShouldQueue
      */
     public function failed(\Throwable $exception)
     {
-        Log::error("UpdateUserAvailabilityJob failed permanently for Task ID: {$this->task->id}. Error: {$exception->getMessage()}");
-        
-        // Release the lock on permanent failure
+        Log::error("UpdateUserAvailabilityJob failed permanently for Task ID: {$this->taskId}. Error: {$exception->getMessage()}");
+
         $lockService = app(AvailabilityLockService::class);
-        $lockService->releaseLock($this->task->user_id, $this->task->id);
+        $lockService->releaseLockById($this->lockId);
     }
 }

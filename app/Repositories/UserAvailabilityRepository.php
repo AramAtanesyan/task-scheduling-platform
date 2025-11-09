@@ -8,19 +8,18 @@ use Illuminate\Database\Eloquent\Collection;
 
 class UserAvailabilityRepository
 {
+
     /**
-     * Find overlapping availability for a user within a date range.
-     *
-     * @param int $userId
-     * @param string|\Carbon\Carbon $startDate
-     * @param string|\Carbon\Carbon $endDate
+     * @param int      $userId
+     * @param string   $startDate
+     * @param string   $endDate
      * @param int|null $excludeTaskId
      * @return UserAvailability|null
      */
-    public function findOverlapping(int $userId, $startDate, $endDate, ?int $excludeTaskId = null): ?UserAvailability
+    public function findOverlapping(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): ?UserAvailability
     {
-        $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
-        $end = $endDate instanceof Carbon ? $endDate : Carbon::parse($endDate);
+        $start = Carbon::parse($startDate);
+        $end   = Carbon::parse($endDate);
 
         $query = UserAvailability::where('user_id', $userId)
             ->where(function ($q) use ($start, $end) {
@@ -34,33 +33,6 @@ class UserAvailabilityRepository
         }
 
         return $query->first();
-    }
-
-    /**
-     * Check if there are overlapping availability records for a user.
-     *
-     * @param int $userId
-     * @param string|\Carbon\Carbon $startDate
-     * @param string|\Carbon\Carbon $endDate
-     * @param int|null $excludeTaskId
-     * @return bool
-     */
-    public function hasOverlapping(int $userId, $startDate, $endDate, ?int $excludeTaskId = null): bool
-    {
-        $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
-        $end = $endDate instanceof Carbon ? $endDate : Carbon::parse($endDate);
-
-        $query = UserAvailability::where('user_id', $userId)
-            ->where(function ($q) use ($start, $end) {
-                $q->where('start_date', '<=', $end)
-                   ->where('end_date', '>=', $start);
-            });
-
-        if ($excludeTaskId) {
-            $query->where('task_id', '!=', $excludeTaskId);
-        }
-
-        return $query->exists();
     }
 
     /**

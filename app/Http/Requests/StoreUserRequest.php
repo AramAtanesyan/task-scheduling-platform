@@ -15,8 +15,8 @@ class StoreUserRequest extends FormRequest
      */
     public function authorize()
     {
-        // Only admins can create users
-        return auth()->check() && auth()->user()->isAdmin();
+        // Authorization handled by 'admin' middleware
+        return true;
     }
 
     /**
@@ -52,23 +52,6 @@ class StoreUserRequest extends FormRequest
             'role.required' => 'User role is required.',
             'role.in' => 'User role must be either admin or user.',
         ];
-    }
-
-    /**
-     * Handle a failed authorization attempt.
-     *
-     * @return void
-     *
-     * @throws HttpResponseException
-     */
-    protected function failedAuthorization()
-    {
-        throw new HttpResponseException(
-            response()->json([
-                'success' => false,
-                'message' => 'Unauthorized. Only administrators can create users.'
-            ], 403)
-        );
     }
 
     /**

@@ -25,7 +25,11 @@ window.Vue.component('dashboard-layout', {
         @add-user="showUserModal = true"
       >
         <template #actions>
-          <a href="/statuses" class="btn-secondary">Manage Statuses</a>
+          <a v-if="currentUser && currentUser.role === 'admin'" 
+             href="/statuses" 
+             class="btn-secondary">
+            Manage Statuses
+          </a>
         </template>
       </app-header>
       <div class="dashboard-content">
@@ -40,10 +44,22 @@ window.Vue.component('dashboard-layout', {
   `,
   data() {
     return {
-      showUserModal: false
+      showUserModal: false,
+      currentUser: null
     };
   },
+  async mounted() {
+    await this.fetchCurrentUser();
+  },
   methods: {
+    async fetchCurrentUser() {
+      try {
+        const response = await axios.get('/api/user');
+        this.currentUser = response.data;
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    },
     handleUserSaved() {
       this.showUserModal = false;
       // Refresh only the users list (new user won't have tasks yet)

@@ -8,7 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class TaskAssignedNotification extends Notification implements ShouldQueue
+class TaskDeletedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -50,14 +50,16 @@ class TaskAssignedNotification extends Notification implements ShouldQueue
         $task = Task::withTrashed()->with('status')->findOrFail($this->taskId);
 
         return (new MailMessage)
-            ->subject('New Task Assigned: ' . $task->title)
+            ->subject('Task Deleted: ' . $task->title)
             ->greeting('Hello ' . $notifiable->name . '!')
-            ->line('You have been assigned a new task.')
+            ->line('A task that was assigned to you has been deleted.')
             ->line('**Task:** ' . $task->title)
             ->line('**Description:** ' . $task->description)
             ->line('**Status:** ' . $task->status->name)
             ->line('**Start Date:** ' . $task->start_date->format('M d, Y'))
             ->line('**Due Date:** ' . $task->end_date->format('M d, Y'))
+            ->line('Your availability has been automatically updated.')
             ->line('Thank you for using our task management platform!');
     }
 }
+

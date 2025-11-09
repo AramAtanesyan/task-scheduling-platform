@@ -13,20 +13,27 @@ class TaskReassignedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    protected $task;
-    protected $previousUser;
+    /**
+     * @var int
+     */
+    private $taskId;
+
+    /**
+     * @var int
+     */
+    private $previousUserId;
 
     /**
      * Create a new notification instance.
      *
-     * @param Task $task
-     * @param User|null $previousUser
+     * @param int $taskId
+     * @param int $previousUserId
      * @return void
      */
-    public function __construct(Task $task, $previousUser = null)
+    public function __construct(int $taskId, int $previousUserId)
     {
-        $this->task = $task;
-        $this->previousUser = $previousUser;
+        $this->taskId = $taskId;
+        $this->previousUserId = $previousUserId;
     }
 
     /**
@@ -37,7 +44,7 @@ class TaskReassignedNotification extends Notification implements ShouldQueue
      */
     public function via($notifiable)
     {
-        return ['mail', 'database'];
+        return ['mail'];
     }
 
     /**
@@ -48,47 +55,19 @@ class TaskReassignedNotification extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
-        $mailMessage = (new MailMessage)
-            ->subject('Task Reassigned: ' . $this->task->title)
+        $task = Task::withTrashed()->with('status')->findOrFail($this->taskId);
+        $previousUser = User::findOrFail($this->previousUserId);
+
+        return (new MailMessage)
+            ->subject('Task Reassigned: ' . $task->title)
             ->greeting('Hello ' . $notifiable->name . '!')
-            ->line('A task has been reassigned to you.');
-
-        if ($this->previousUser) {
-            $mailMessage->line('**Previously assigned to:** ' . $this->previousUser->name);
-        }
-
-        return $mailMessage
-            ->line('**Task:** ' . $this->task->title)
-            ->line('**Description:** ' . $this->task->description)
-            ->line('**Status:** ' . $this->task->status->name)
-            ->line('**Start Date:** ' . $this->task->start_date->format('M d, Y'))
-            ->line('**Due Date:** ' . $this->task->end_date->format('M d, Y'))
-            ->action('View Task', url('/'))
+            ->line('A task has been reassigned to you.')
+            ->line('**Previously assigned to:** ' . $previousUser->name)
+            ->line('**Task:** ' . $task->title)
+            ->line('**Description:** ' . $task->description)
+            ->line('**Status:** ' . $task->status->name)
+            ->line('**Start Date:** ' . $task->start_date->format('M d, Y'))
+            ->line('**Due Date:** ' . $task->end_date->format('M d, Y'))
             ->line('Thank you for using our task management platform!');
-    }
-
-    /**
-     * Get the array representation of the notification.
-     *
-     * @param  mixed  $notifiable
-     * @return array
-     */
-    public function toArray($notifiable)
-    {
-        $message = "Task '{$this->task->title}' has been reassigned to you";
-        if ($this->previousUser) {
-            $message .= " from {$this->previousUser->name}";
-        }
-
-        return [
-            'task_id' => $this->task->id,
-            'task_title' => $this->task->title,
-            'task_description' => $this->task->description,
-            'start_date' => $this->task->start_date,
-            'end_date' => $this->task->end_date,
-            'status' => $this->task->status->name,
-            'previous_user' => $this->previousUser ? $this->previousUser->name : null,
-            'message' => $message,
-        ];
     }
 }

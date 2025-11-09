@@ -8,11 +8,14 @@ use App\Services\AvailabilityLockService;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
 use App\Http\Traits\ApiResponseTrait;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Jobs\UpdateUserAvailabilityJob;
 use App\Notifications\TaskAssignedNotification;
 use App\Notifications\TaskReassignedNotification;
+use App\Notifications\TaskDeletedNotification;
 
 class TaskController extends Controller
 {
@@ -33,7 +36,7 @@ class TaskController extends Controller
      * Display a listing of the resource.
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function index(Request $request)
     {
@@ -89,23 +92,18 @@ class TaskController extends Controller
      * Store a newly created resource in storage.
      *
      * @param StoreTaskRequest $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function store(StoreTaskRequest $request)
     {
-        // Only admins can create tasks
-        if (!auth()->user()->isAdmin()) {
+        // Wait for user lock to be released (if locked)
+        if (!$this->lockService->waitForUnlock($request->user_id)) {
+            Log::warning("Lock timeout for user availability update", [
+                'user_id' => $request->user_id,
+                'action' => 'store_task'
+            ]);
             return $this->errorResponse(
-                'Unauthorized. Only administrators can create tasks.',
-                null,
-                403
-            );
-        }
-
-        // Check if user is currently locked (availability being processed)
-        if ($this->lockService->isLocked($request->user_id)) {
-            return $this->errorResponse(
-                "This user's availability is currently being updated. Please wait a moment and try again.",
+                "The system is processing a previous request. Please try again in a moment.",
                 null,
                 422
             );
@@ -120,29 +118,24 @@ class TaskController extends Controller
 
         if (!$availabilityCheck['available']) {
             return $this->errorResponse(
-                $availabilityCheck['message'],
-                ['overlapping_task' => $availabilityCheck['overlapping_task']],
-                422
+                $availabilityCheck['message']
             );
         }
 
         DB::beginTransaction();
         try {
-            // Create the task
             $task = Task::create($request->validated());
 
             // Acquire lock before dispatching job
-            $lock = $this->lockService->acquireLock($request->user_id, $task->id);
+            $lock = $this->lockService->acquireLock($request->user_id);
 
             if (!$lock) {
                 throw new \Exception('Failed to acquire availability lock');
             }
 
-            // Dispatch job to update availability asynchronously
-            UpdateUserAvailabilityJob::dispatch($task);
+            UpdateUserAvailabilityJob::dispatch($task->id, $lock->id);
 
-            // Send notification to assigned user
-            $task->user->notify(new TaskAssignedNotification($task));
+            $task->user->notify(new TaskAssignedNotification($task->id));
 
             DB::commit();
 
@@ -160,24 +153,14 @@ class TaskController extends Controller
      *
      * @param UpdateTaskRequest $request
      * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
-    public function update(UpdateTaskRequest $request, $id)
+    public function update(UpdateTaskRequest $request, Task $task)
     {
-        $task = Task::findOrFail($id);
+        $data = $request->validated();
 
-        // Check if user is trying to update non-status fields
-        $nonStatusFields = collect($request->validated())
-            ->except(['status_id'])
-            ->isNotEmpty();
-
-        // Regular users can only update status
-        if (!auth()->user()->isAdmin() && $nonStatusFields) {
-            return $this->errorResponse(
-                'Unauthorized. Regular users can only update task status.',
-                null,
-                403
-            );
+        if ($errorResponse = $this->validateUpdatingOnlyStatus($data)) {
+            return $errorResponse;
         }
 
         // Check for overlapping tasks if user or dates are being changed
@@ -186,10 +169,15 @@ class TaskController extends Controller
             $startDate = $request->start_date ?? $task->start_date;
             $endDate = $request->end_date ?? $task->end_date;
 
-            // Check if user is currently locked
-            if ($this->lockService->isLocked($userId)) {
+            // Wait for user lock to be released (if locked)
+            if (!$this->lockService->waitForUnlock($userId)) {
+                Log::warning("Lock timeout for user availability update", [
+                    'user_id' => $userId,
+                    'task_id' => $task->id,
+                    'action' => 'update_task'
+                ]);
                 return $this->errorResponse(
-                    "This user's availability is currently being updated. Please wait a moment and try again.",
+                    "The system is processing a previous request. Please try again in a moment.",
                     null,
                     422
                 );
@@ -214,42 +202,28 @@ class TaskController extends Controller
 
         DB::beginTransaction();
         try {
-            // Check if user is changing
             $userIdChanged = $request->has('user_id') && $request->user_id != $task->user_id;
-            $datesChanged = $request->has('start_date') || $request->has('end_date');
+            $datesChanged = ($request->has('start_date') && $request->start_date != $task->start_date->format('Y-m-d'))
+                            ||
+                            ($request->has('end_date') && $request->end_date != $task->end_date->format('Y-m-d'));
 
-            // Store previous user for notification if user is being reassigned
             $previousUser = $userIdChanged ? $task->user : null;
 
-            $task->update($request->validated());
+            $task->update($data);
 
-            // Only acquire lock and update availability if dates or user changed
             if ($userIdChanged || $datesChanged) {
-                $task->refresh(); // Reload task with updated data
+                $task->refresh();
 
-                // If a lock already exists for this task, release it first
-                // This can happen if we're updating dates but not user
-                $existingLock = \App\Models\UserAvailabilityLock::where('task_id', $task->id)
-                    ->where('is_processing', true)
-                    ->first();
-
-                if ($existingLock) {
-                    $this->lockService->releaseLock($existingLock->user_id, $task->id);
-                }
-
-                // Acquire new lock for the current user
-                $lock = $this->lockService->acquireLock($task->user_id, $task->id);
+                $lock = $this->lockService->acquireLock($task->user_id);
 
                 if (!$lock) {
                     throw new \Exception('Failed to acquire availability lock');
                 }
 
-                // Dispatch job to update availability asynchronously
-                UpdateUserAvailabilityJob::dispatch($task);
+                UpdateUserAvailabilityJob::dispatch($task->id, $lock->id);
 
-                // Send notification if user was reassigned
-                if ($userIdChanged && $previousUser) {
-                    $task->user->notify(new TaskReassignedNotification($task, $previousUser));
+                if ($userIdChanged) {
+                    $task->user->notify(new TaskReassignedNotification($task->id, $previousUser->id));
                 }
             }
 
@@ -268,26 +242,18 @@ class TaskController extends Controller
      * Remove the specified resource from storage.
      *
      * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function destroy($id)
     {
-        // Only admins can delete tasks
-        if (!auth()->user()->isAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized. Only administrators can delete tasks.'
-            ], 403);
-        }
-
         $task = Task::findOrFail($id);
 
         DB::beginTransaction();
         try {
-            // Delete availability record
             $task->availability()->delete();
 
-            // Delete task
+            $task->user->notify(new TaskDeletedNotification($task->id));
+
             $task->delete();
 
             DB::commit();
@@ -304,6 +270,35 @@ class TaskController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * @param array $data
+     * @return JsonResponse|null
+     */
+    private function validateUpdatingOnlyStatus(array $data): ?JsonResponse
+    {
+        if (auth()->user()->isAdmin()) {
+            return null;
+        }
+
+        $allowedFields = ['status_id'];
+
+        $attemptsToUpdateOtherFields = collect($data)
+            ->keys()
+            ->contains(function($field) use ($allowedFields) {
+                return !in_array($field, $allowedFields);
+            });
+
+        if (!$attemptsToUpdateOtherFields) {
+            return null;
+        }
+
+        return $this->errorResponse(
+            'Unauthorized. Regular users can only update the task status.',
+            null,
+            403
+        );
     }
 
 }

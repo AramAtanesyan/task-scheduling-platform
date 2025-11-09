@@ -13,14 +13,10 @@ window.Vue.component('task-modal', {
           <button @click="handleClose" class="btn-close">×</button>
         </div>
         <form @submit.prevent="handleSubmit" class="modal-body">
-          <div v-if="editingTask && !isAdmin" class="error-message" style="background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc;">
-            Note: You can only update the task status. Contact an administrator to modify other fields.
-          </div>
-          
+
           <div class="form-group">
             <label>Title *</label>
             <input v-model="form.title" type="text" class="form-control" :disabled="editingTask && !isAdmin" />
-            <span v-if="errors.title" class="error-text">{{ errors.title[0] }}</span>
           </div>
 
           <div class="form-group">
@@ -32,13 +28,11 @@ window.Vue.component('task-modal', {
             <div class="form-group">
               <label>Start Date *</label>
               <input v-model="form.start_date" type="date" class="form-control" :disabled="editingTask && !isAdmin" />
-              <span v-if="errors.start_date" class="error-text">{{ errors.start_date[0] }}</span>
             </div>
 
             <div class="form-group">
               <label>End Date *</label>
               <input v-model="form.end_date" type="date" class="form-control" :disabled="editingTask && !isAdmin" />
-              <span v-if="errors.end_date" class="error-text">{{ errors.end_date[0] }}</span>
             </div>
           </div>
 
@@ -51,7 +45,6 @@ window.Vue.component('task-modal', {
                   {{ user.name }}
                 </option>
               </select>
-              <span v-if="errors.user_id" class="error-text">{{ errors.user_id[0] }}</span>
             </div>
 
             <div class="form-group">
@@ -62,12 +55,11 @@ window.Vue.component('task-modal', {
                   {{ status.name }}
                 </option>
               </select>
-              <span v-if="errors.status_id" class="error-text">{{ errors.status_id[0] }}</span>
             </div>
           </div>
 
-          <div v-if="availabilityError" class="error-message">
-            {{ availabilityError }}
+          <div v-if="errorMessage" class="error-message">
+            {{ errorMessage }}
           </div>
 
           <div class="modal-footer">
@@ -108,8 +100,7 @@ window.Vue.component('task-modal', {
         user_id: '',
         status_id: ''
       },
-      errors: {},
-      availabilityError: '',
+      errorMessage: '',
       loading: false
     };
   },
@@ -146,8 +137,7 @@ window.Vue.component('task-modal', {
             status_id: defaultStatus ? defaultStatus.id : ''
           };
         }
-        this.errors = {};
-        this.availabilityError = '';
+        this.errorMessage = '';
       }
     }
   },
@@ -167,8 +157,7 @@ window.Vue.component('task-modal', {
       this.$emit('close');
     },
     async handleSubmit() {
-      this.errors = {};
-      this.availabilityError = '';
+      this.errorMessage = '';
       this.loading = true;
 
       try {
@@ -178,7 +167,7 @@ window.Vue.component('task-modal', {
         const method = this.editingTask ? 'put' : 'post';
 
         // For non-admin users editing tasks, only send status_id
-        const payload = (this.editingTask && !this.isAdmin) 
+        const payload = (this.editingTask && !this.isAdmin)
           ? { status_id: this.form.status_id }
           : this.form;
 
@@ -188,15 +177,11 @@ window.Vue.component('task-modal', {
           this.$emit('save');
         }
       } catch (error) {
-        if (error.response && error.response.status === 422) {
-          if (error.response.data.errors) {
-            this.errors = error.response.data.errors;
-          }
-          if (error.response.data.message && error.response.data.message.includes('overlapping')) {
-            this.availabilityError = error.response.data.message;
-          }
+        if (error.response && error.response.data) {
+          // Show the message from backend, or fallback to a default message
+          this.errorMessage = error.response.data.message || 'An error occurred. Please try again.';
         } else {
-          this.availabilityError = 'An error occurred. Please try again.';
+          this.errorMessage = 'An error occurred. Please try again.';
         }
       } finally {
         this.loading = false;

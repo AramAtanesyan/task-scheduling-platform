@@ -16,34 +16,6 @@ class AvailabilityService
     }
 
     /**
-     * Check if a user has overlapping tasks in the given date range.
-     *
-     * @param int $userId
-     * @param string $startDate
-     * @param string $endDate
-     * @param int|null $excludeTaskId
-     * @return bool
-     */
-    public function hasOverlappingTask(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): bool
-    {
-        return $this->availabilityRepository->hasOverlapping($userId, $startDate, $endDate, $excludeTaskId);
-    }
-
-    /**
-     * Get overlapping task for a user.
-     *
-     * @param int $userId
-     * @param string $startDate
-     * @param string $endDate
-     * @param int|null $excludeTaskId
-     * @return UserAvailability|null
-     */
-    public function getOverlappingTask(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): ?UserAvailability
-    {
-        return $this->availabilityRepository->findOverlapping($userId, $startDate, $endDate, $excludeTaskId);
-    }
-
-    /**
      * Validate user availability and return detailed information.
      *
      * @param int $userId
@@ -59,7 +31,6 @@ class AvailabilityService
         if (!$overlappingAvailability) {
             return [
                 'available' => true,
-                'message' => 'User is available during this period.',
             ];
         }
 
@@ -69,25 +40,20 @@ class AvailabilityService
 
         return [
             'available' => false,
-            'message' => "User is unavailable during this period. They have an overlapping task: \"{$task->title}\" ({$startFormatted} - {$endFormatted})",
-            'overlapping_task' => [
-                'id' => $task->id,
-                'title' => $task->title,
-                'start_date' => $overlappingAvailability->start_date,
-                'end_date' => $overlappingAvailability->end_date,
-            ],
+            'message' => "During the period from {$startFormatted} to {$endFormatted}, the user is already working on the \"{$task->title}\" task. Please choose another available time slot.",
         ];
     }
 
     /**
-     * Get all availability records for a user.
-     *
-     * @param int $userId
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @param int      $userId
+     * @param string   $startDate
+     * @param string   $endDate
+     * @param int|null $excludeTaskId
+     * @return UserAvailability|null
      */
-    public function getUserAvailability(int $userId)
+    private function getOverlappingTask(int $userId, string $startDate, string $endDate, ?int $excludeTaskId = null): ?UserAvailability
     {
-        return $this->availabilityRepository->getByUser($userId);
+        return $this->availabilityRepository->findOverlapping($userId, $startDate, $endDate, $excludeTaskId);
     }
 }
 

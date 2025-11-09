@@ -11,16 +11,11 @@ class UserAvailabilityLock extends Model
 
     protected $fillable = [
         'user_id',
-        'task_id',
-        'is_processing',
         'locked_at',
-        'completed_at',
     ];
 
     protected $casts = [
-        'is_processing' => 'boolean',
         'locked_at' => 'datetime',
-        'completed_at' => 'datetime',
     ];
 
     /**
@@ -29,13 +24,5 @@ class UserAvailabilityLock extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the task associated with this lock.
-     */
-    public function task()
-    {
-        return $this->belongsTo(Task::class);
     }
 }

@@ -22,6 +22,7 @@ class CreateUserAvailabilitiesTable extends Migration
             $table->timestamps();
 
             $table->index(['user_id', 'start_date', 'end_date']);
+            $table->unique('task_id');
         });
     }
 
