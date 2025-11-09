@@ -40,11 +40,6 @@ window.Vue.component('login-form', {
             {{ loading ? 'Logging in...' : 'Login' }}
           </button>
         </form>
-        <div class="login-info">
-          <p><strong>Demo Credentials:</strong></p>
-          <p>Email: admin@example.com</p>
-          <p>Password: password</p>
-        </div>
       </div>
     </div>
   `,
