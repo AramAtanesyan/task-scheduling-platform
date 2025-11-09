@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -30,19 +29,30 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if (!Auth::attempt($request->only('email', 'password'), $request->filled('remember'))) {
+        $credentials = $request->only('email', 'password');
+        $remember = $request->filled('remember');
+
+        if (!Auth::attempt($credentials, $remember)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid credentials'
             ], 401);
         }
 
+        // Regenerate session to prevent session fixation attacks
         $request->session()->regenerate();
+
+        // Explicitly save the session
+        $request->session()->save();
+
+        // Get authenticated user
+        $user = Auth::user();
 
         return response()->json([
             'success' => true,
-            'user' => Auth::user(),
-            'message' => 'Login successful'
+            'user' => $user,
+            'message' => 'Login successful',
+            'redirect' => '/dashboard'
         ]);
     }
 

@@ -68,7 +68,7 @@ window.Vue.component('login-form', {
         });
 
         if (response.data.success) {
-          window.location.href = '/';
+          window.location.href = '/dashboard';
         } else {
           this.error = response.data.message || 'Login failed';
         }
