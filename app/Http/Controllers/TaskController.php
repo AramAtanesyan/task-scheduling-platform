@@ -154,7 +154,7 @@ class TaskController extends Controller
     {
         $data = $request->validated();
 
-        if ($errorResponse = $this->validateUpdatingOnlyStatus($data)) {
+        if ($errorResponse = $this->validateNonAdminUpdate($task, $data)) {
             return $errorResponse;
         }
 
@@ -268,15 +268,29 @@ class TaskController extends Controller
     }
 
     /**
+     * Validate that non-admin users can only update their own tasks and only the status field.
+     *
+     * @param Task $task
      * @param array $data
      * @return JsonResponse|null
      */
-    private function validateUpdatingOnlyStatus(array $data): ?JsonResponse
+    private function validateNonAdminUpdate(Task $task, array $data): ?JsonResponse
     {
+        // Admins can update any task with any fields
         if (auth()->user()->isAdmin()) {
             return null;
         }
 
+        // Check if user owns the task
+        if ($task->user_id !== auth()->user()->id) {
+            return $this->errorResponse(
+                'Unauthorized. You can only update your own tasks.',
+                null,
+                403
+            );
+        }
+
+        // Check if user is trying to update fields other than status_id
         $allowedFields = ['status_id'];
 
         $attemptsToUpdateOtherFields = collect($data)
@@ -285,15 +299,15 @@ class TaskController extends Controller
                 return !in_array($field, $allowedFields);
             });
 
-        if (!$attemptsToUpdateOtherFields) {
-            return null;
+        if ($attemptsToUpdateOtherFields) {
+            return $this->errorResponse(
+                'Unauthorized. Regular users can only update the task status.',
+                null,
+                403
+            );
         }
 
-        return $this->errorResponse(
-            'Unauthorized. Regular users can only update the task status.',
-            null,
-            403
-        );
+        return null;
     }
 
 }

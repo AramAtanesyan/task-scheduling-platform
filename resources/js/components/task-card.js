@@ -10,8 +10,10 @@ window.Vue.component('task-card', {
       <div class="task-header">
         <h4 class="task-title">{{ task.title }}</h4>
         <div class="task-actions">
-          <button @click="$emit('edit', task)" class="btn-icon">✏️</button>
-          <button v-if="isAdmin" @click="$emit('delete', task.id)" class="btn-icon">🗑️</button>
+          <button @click="$emit('edit', task)" class="btn-icon" :title="canEdit ? 'Edit task' : 'View task'">
+            {{ canEdit ? '✏️' : '👁️' }}
+          </button>
+          <button v-if="isAdmin" @click="$emit('delete', task.id)" class="btn-icon" title="Delete task">🗑️</button>
         </div>
       </div>
       <p v-if="task.description" class="task-description">{{ task.description }}</p>
@@ -45,6 +47,9 @@ window.Vue.component('task-card', {
   computed: {
     isAdmin() {
       return this.currentUser && this.currentUser.role === 'admin';
+    },
+    canEdit() {
+      return this.isAdmin || (this.currentUser && this.task.user_id === this.currentUser.id);
     }
   },
   methods: {

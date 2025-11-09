@@ -9,7 +9,7 @@ window.Vue.component('task-modal', {
     <div class="modal-overlay" @click.self="handleClose">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>{{ editingTask ? 'Edit Task' : 'Create Task' }}</h3>
+          <h3>{{ modalTitle }}</h3>
           <button @click="handleClose" class="btn-close">×</button>
         </div>
         <form @submit.prevent="handleSubmit" class="modal-body">
@@ -54,7 +54,7 @@ window.Vue.component('task-modal', {
 
             <div class="form-group">
               <label>Status *</label>
-              <select v-model="form.status_id" class="form-control">
+              <select v-model="form.status_id" class="form-control" :disabled="editingTask && !canEdit">
                 <option value="">Select a status</option>
                 <option v-for="status in statuses" :key="status.id" :value="status.id">
                   {{ status.name }}
@@ -68,11 +68,14 @@ window.Vue.component('task-modal', {
             {{ generalError }}
           </div>
 
-          <div class="modal-footer">
+          <div v-if="!editingTask || canEdit" class="modal-footer">
             <button type="button" @click="handleClose" class="btn-secondary">Cancel</button>
             <button type="submit" :disabled="loading" class="btn-primary">
               {{ loading ? 'Saving...' : editingTask ? 'Update' : 'Create' }}
             </button>
+          </div>
+          <div v-else class="modal-footer">
+            <button type="button" @click="handleClose" class="btn-primary">Close</button>
           </div>
         </form>
       </div>
@@ -118,8 +121,20 @@ window.Vue.component('task-modal', {
     isAdmin() {
       return this.currentUser && this.currentUser.role === 'admin';
     },
+    isOwnTask() {
+      return this.task && this.currentUser && this.task.user_id === this.currentUser.id;
+    },
+    canEdit() {
+      return this.isAdmin || this.isOwnTask;
+    },
     hasFieldErrors() {
       return Object.keys(this.errors).length > 0;
+    },
+    modalTitle() {
+      if (!this.editingTask) {
+        return 'Create Task';
+      }
+      return this.canEdit ? 'Edit Task' : 'View Task';
     }
   },
   watch: {
@@ -168,6 +183,12 @@ window.Vue.component('task-modal', {
       this.$emit('close');
     },
     async handleSubmit() {
+      // Prevent submission if user can't edit the task
+      if (this.editingTask && !this.canEdit) {
+        this.generalError = 'You can only edit your own tasks.';
+        return;
+      }
+
       this.errors = {};
       this.generalError = '';
       this.loading = true;
