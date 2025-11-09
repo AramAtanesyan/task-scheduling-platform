@@ -17,22 +17,26 @@ window.Vue.component('task-modal', {
           <div class="form-group">
             <label>Title *</label>
             <input v-model="form.title" type="text" class="form-control" :disabled="editingTask && !isAdmin" />
+            <div v-if="errors.title" class="error-message">{{ errors.title[0] }}</div>
           </div>
 
           <div class="form-group">
             <label>Description</label>
             <textarea v-model="form.description" class="form-control" rows="3" :disabled="editingTask && !isAdmin"></textarea>
+            <div v-if="errors.description" class="error-message">{{ errors.description[0] }}</div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
               <label>Start Date *</label>
               <input v-model="form.start_date" type="date" class="form-control" :disabled="editingTask && !isAdmin" />
+              <div v-if="errors.start_date" class="error-message">{{ errors.start_date[0] }}</div>
             </div>
 
             <div class="form-group">
               <label>End Date *</label>
               <input v-model="form.end_date" type="date" class="form-control" :disabled="editingTask && !isAdmin" />
+              <div v-if="errors.end_date" class="error-message">{{ errors.end_date[0] }}</div>
             </div>
           </div>
 
@@ -45,6 +49,7 @@ window.Vue.component('task-modal', {
                   {{ user.name }}
                 </option>
               </select>
+              <div v-if="errors.user_id" class="error-message">{{ errors.user_id[0] }}</div>
             </div>
 
             <div class="form-group">
@@ -55,11 +60,12 @@ window.Vue.component('task-modal', {
                   {{ status.name }}
                 </option>
               </select>
+              <div v-if="errors.status_id" class="error-message">{{ errors.status_id[0] }}</div>
             </div>
           </div>
 
-          <div v-if="errorMessage" class="error-message">
-            {{ errorMessage }}
+          <div v-if="generalError && !hasFieldErrors" class="error-message">
+            {{ generalError }}
           </div>
 
           <div class="modal-footer">
@@ -100,7 +106,8 @@ window.Vue.component('task-modal', {
         user_id: '',
         status_id: ''
       },
-      errorMessage: '',
+      errors: {},
+      generalError: '',
       loading: false
     };
   },
@@ -110,6 +117,9 @@ window.Vue.component('task-modal', {
     },
     isAdmin() {
       return this.currentUser && this.currentUser.role === 'admin';
+    },
+    hasFieldErrors() {
+      return Object.keys(this.errors).length > 0;
     }
   },
   watch: {
@@ -137,7 +147,8 @@ window.Vue.component('task-modal', {
             status_id: defaultStatus ? defaultStatus.id : ''
           };
         }
-        this.errorMessage = '';
+        this.errors = {};
+        this.generalError = '';
       }
     }
   },
@@ -157,7 +168,8 @@ window.Vue.component('task-modal', {
       this.$emit('close');
     },
     async handleSubmit() {
-      this.errorMessage = '';
+      this.errors = {};
+      this.generalError = '';
       this.loading = true;
 
       try {
@@ -178,10 +190,14 @@ window.Vue.component('task-modal', {
         }
       } catch (error) {
         if (error.response && error.response.data) {
-          // Show the message from backend, or fallback to a default message
-          this.errorMessage = error.response.data.message || 'An error occurred. Please try again.';
-        } else {
-          this.errorMessage = 'An error occurred. Please try again.';
+          // Check for field-specific validation errors
+          if (error.response.data.errors) {
+            this.errors = error.response.data.errors;
+          }
+          // Check for general error message (like availability conflicts)
+          if (error.response.data.message) {
+            this.generalError = error.response.data.message;
+          }
         }
       } finally {
         this.loading = false;
